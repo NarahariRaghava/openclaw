@@ -471,10 +471,11 @@ export function createCommandHandlers(context: CommandHandlerContext) {
             });
             const resolvedModel = result.resolved?.model;
             const resolvedProvider = result.resolved?.modelProvider;
-            const resolvedModelRef =
-              resolvedModel && resolvedProvider && !resolvedModel.includes("/")
-                ? `${resolvedProvider}/${resolvedModel}`
-                : (resolvedModel ?? args);
+            const resolvedModelRef = resolvedModel
+              ? resolvedProvider
+                ? modelKey(resolvedProvider, resolvedModel)
+                : resolvedModel
+              : args;
             chatLog.addSystem(`model set to ${resolvedModelRef}`);
             applySessionInfoFromPatch(result);
             await refreshSessionInfo();

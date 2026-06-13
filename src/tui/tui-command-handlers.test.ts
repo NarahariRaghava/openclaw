@@ -1191,6 +1191,25 @@ describe("tui command handlers", () => {
 
     expect(addSystem).toHaveBeenCalledWith("model set to openai/gpt-5.5");
   });
+  it("preserves provider prefix for nested model ids in /model confirmation", async () => {
+    // Some providers route to nested model ids that themselves contain a slash
+    // (e.g. resolved.model: "moonshotai/kimi-k2.5" with modelProvider: "nvidia").
+    // The confirmation must still show the full nvidia/moonshotai/kimi-k2.5 ref
+    // to match the footer/status bar, not strip the provider just because the
+    // model id already contains a slash.
+    const patchSession = vi.fn().mockResolvedValue({
+      ok: true,
+      path: "/sessions/patch",
+      key: "agent:main:main",
+      entry: {},
+      resolved: { modelProvider: "nvidia", model: "moonshotai/kimi-k2.5" },
+    });
+    const { handleCommand, addSystem } = createHarness({ patchSession });
+
+    await handleCommand("/model nvidia/moonshotai/kimi-k2.5");
+
+    expect(addSystem).toHaveBeenCalledWith("model set to nvidia/moonshotai/kimi-k2.5");
+  });
 
   it("renders model listing feedback before the backend list resolves", async () => {
     let resolveModels: (
