@@ -1688,6 +1688,16 @@ function validateConfigObjectWithPluginsBase(
     };
   };
 
+  // Channels["*"] is a narrow, reserved wildcard: it does NOT mean "a real
+  // channel id" and is intentionally excluded from the normal per-plugin
+  // schema lookup below. Only the two cross-channel display fields that the
+  // runtime fallback (resolveAckReaction / resolveResponsePrefix) actually
+  // reads are accepted here. Any other key (e.g. dmPolicy, groupPolicy)
+  // is rejected explicitly so wildcard config can never silently bypass
+  // per-channel policy enforcement that sibling consumers (config-presence,
+  // route-targets) do not know how to apply to "*".
+  const WILDCARD_CHANNEL_ALLOWED_FIELDS = new Set(["ackReaction", "responsePrefix"]);
+
   const allowedChannels = new Set<string>([
     "defaults",
     "modelByChannel",
@@ -1721,6 +1731,34 @@ function validateConfigObjectWithPluginsBase(
           });
         } else {
           issues.push(issue);
+        }
+        continue;
+      }
+
+      if (trimmed === "*") {
+        const wildcardValue = config.channels[trimmed];
+        if (isRecord(wildcardValue)) {
+          for (const fieldKey of Object.keys(wildcardValue)) {
+            if (!WILDCARD_CHANNEL_ALLOWED_FIELDS.has(fieldKey)) {
+              issues.push({
+                path: `channels.*.${fieldKey}`,
+                message: `unsupported wildcard channel field: ${fieldKey} (only ackReaction and responsePrefix are supported under channels["*"])`,
+              });
+              continue;
+            }
+            const fieldValue = (wildcardValue as Record<string, unknown>)[fieldKey];
+            if (fieldValue !== undefined && typeof fieldValue !== "string") {
+              issues.push({
+                path: `channels.*.${fieldKey}`,
+                message: `channels["*"].${fieldKey} must be a string`,
+              });
+            }
+          }
+        } else if (wildcardValue !== undefined) {
+          issues.push({
+            path: "channels.*",
+            message: 'channels["*"] must be an object',
+          });
         }
         continue;
       }
