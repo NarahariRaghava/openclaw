@@ -126,22 +126,28 @@ export async function sendTelegramText(
       skipEntityDetection: opts.linkPreview === false,
       tableMode: opts.tableMode,
     });
-    const res = await sendTelegramWithThreadFallback({
-      operation: "sendRichMessage",
-      runtime,
-      thread: opts.thread,
-      requestParams: toTelegramRichMessageContextParams(baseParams),
-      removeNativeQuoteParam: removeTelegramRichNativeQuoteParam,
-      send: (effectiveParams) =>
-        getTelegramRichRawApi(bot.api).sendRichMessage({
-          chat_id: chatId,
-          rich_message: richMessage,
-          ...(opts.replyMarkup ? { reply_markup: opts.replyMarkup } : {}),
-          ...effectiveParams,
-        }),
-    });
-    runtime.log?.(`telegram sendRichMessage ok chat=${chatId} message=${res.message_id}`);
-    return res.message_id;
+    try {
+      const res = await sendTelegramWithThreadFallback({
+        operation: "sendRichMessage",
+        runtime,
+        thread: opts.thread,
+        requestParams: toTelegramRichMessageContextParams(baseParams),
+        removeNativeQuoteParam: removeTelegramRichNativeQuoteParam,
+        send: (effectiveParams) =>
+          getTelegramRichRawApi(bot.api).sendRichMessage({
+            chat_id: chatId,
+            rich_message: richMessage,
+            ...(opts.replyMarkup ? { reply_markup: opts.replyMarkup } : {}),
+            ...effectiveParams,
+          }),
+      });
+      runtime.log?.(`telegram sendRichMessage ok chat=${chatId} message=${res.message_id}`);
+      return res.message_id;
+    } catch (err) {
+      runtime.error?.(
+        `telegram sendRichMessage failed, falling back to plain text: ${formatErrorMessage(err)}`,
+      );
+    }
   }
   // Add link_preview_options when link preview is disabled.
   const linkPreviewEnabled = opts?.linkPreview ?? true;
