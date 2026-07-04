@@ -54,16 +54,16 @@ function buildWarningContext(params: WarningParams): string {
 }
 
 function formatDuration(ms: number): string {
-  if (ms >= 86_400_000) {
-    const days = Math.round(ms / 86_400_000);
+  const days = Math.round(ms / 86_400_000);
+  if (days >= 1) {
     return `${days} day${days === 1 ? "" : "s"}`;
   }
-  if (ms >= 3_600_000) {
-    const hours = Math.round(ms / 3_600_000);
+  const hours = Math.round(ms / 3_600_000);
+  if (hours >= 1) {
     return `${hours} hour${hours === 1 ? "" : "s"}`;
   }
-  if (ms >= 60_000) {
-    const mins = Math.round(ms / 60_000);
+  const mins = Math.round(ms / 60_000);
+  if (mins >= 1) {
     return `${mins} minute${mins === 1 ? "" : "s"}`;
   }
   const secs = Math.round(ms / 1000);
