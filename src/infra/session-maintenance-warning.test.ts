@@ -217,4 +217,19 @@ describe("deliverSessionMaintenanceWarning", () => {
       expect(firstSystemEventCall()?.[0]).toContain(`older than ${expected}`);
     },
   );
+
+  it.each([
+    [30_000, "30 seconds"],
+    [1_800_000, "30 minutes"],
+    [43_200_000, "12 hours"],
+  ])("formatDuration keeps %dms in its own unit as %s", async (pruneAfterMs, expected) => {
+    mocks.deliverOutboundPayloads.mockRejectedValueOnce(new Error("force system event"));
+    const params = createParams({
+      warning: { pruneAfterMs, wouldPrune: true, wouldCap: false, maxEntries: 100 } as never,
+    });
+
+    await deliverSessionMaintenanceWarning(params);
+
+    expect(firstSystemEventCall()?.[0]).toContain(`older than ${expected}`);
+  });
 });

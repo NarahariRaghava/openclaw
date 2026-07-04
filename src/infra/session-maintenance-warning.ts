@@ -54,20 +54,20 @@ function buildWarningContext(params: WarningParams): string {
 }
 
 function formatDuration(ms: number): string {
-  const days = Math.round(ms / 86_400_000);
-  if (days >= 1) {
-    return `${days} day${days === 1 ? "" : "s"}`;
+  const secs = Math.round(ms / 1000);
+  if (secs < 60) {
+    return `${secs} second${secs === 1 ? "" : "s"}`;
   }
-  const hours = Math.round(ms / 3_600_000);
-  if (hours >= 1) {
-    return `${hours} hour${hours === 1 ? "" : "s"}`;
-  }
-  const mins = Math.round(ms / 60_000);
-  if (mins >= 1) {
+  const mins = Math.round(secs / 60);
+  if (mins < 60) {
     return `${mins} minute${mins === 1 ? "" : "s"}`;
   }
-  const secs = Math.round(ms / 1000);
-  return `${secs} second${secs === 1 ? "" : "s"}`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"}`;
 }
 
 function buildWarningText(warning: SessionMaintenanceWarning): string {
