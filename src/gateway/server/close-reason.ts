@@ -19,7 +19,7 @@ export function truncateCloseReason(reason: string, maxBytes = CLOSE_REASON_MAX_
   // UTF-8 continuation bytes have the form 10xxxxxx; the start byte of a sequence
   // is any byte that is NOT a continuation byte (0x00–0x7F or 0xC0–0xFF).
   let end = maxBytes;
-  while (end > 0 && (buf[end]! & 0xc0) === 0x80) {
+  while (end > 0 && (buf[end] & 0xc0) === 0x80) {
     end--;
   }
   return buf.subarray(0, end).toString();
