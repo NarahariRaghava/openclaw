@@ -32,7 +32,6 @@ function resetSessionMaintenanceWarningForTests() {
 
 export const testing = {
   resetSessionMaintenanceWarningForTests,
-  formatDuration,
 } as const;
 
 const loadDeliverRuntime = messageRuntimeLoader.load;
