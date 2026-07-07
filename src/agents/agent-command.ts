@@ -141,6 +141,7 @@ import { listOpenAIAuthProfileProvidersForAgentRuntime } from "./openai-routing.
 import { resolveProviderIdForAuth } from "./provider-auth-aliases.js";
 import {
   createAgentRunRestartAbortError,
+  isAbortedAgentStopReason,
   isAgentRunDirectAbortReason,
   isAgentRunRestartAbortReason,
   resolveAgentRunAbortLifecycleFields,
@@ -1874,8 +1875,12 @@ async function agentCommandInternal(
         }
         attemptLifecycleState.lifecycleEnded = true;
         const stopReason = runResult.meta.stopReason;
-        if (stopReason && stopReason !== "end_turn") {
-          console.error(`[agent] run ${runId} ended with stopReason=${stopReason}`);
+        if (stopReason && stopReason !== "end_turn" && stopReason !== "stop") {
+          if (isAbortedAgentStopReason(stopReason)) {
+            console.warn(`[agent] run ${runId} ended with stopReason=${stopReason}`);
+          } else {
+            console.error(`[agent] run ${runId} ended with stopReason=${stopReason}`);
+          }
         }
         emitAgentEvent({
           runId,
