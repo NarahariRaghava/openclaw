@@ -135,7 +135,7 @@ export function normalizeAgentHarnessUserInputAnswer(
 function parseKeyedAnswers(inputText: string, validKeys: ReadonlySet<string>): Map<string, string> {
   const answers = new Map<string, string>();
   for (const line of inputText.split(/\r?\n/)) {
-    const match = line.match(/^\s*([^:=-]+?)\s*[:=-](?!\/\/|\\)\s*(.+?)\s*$/);
+    const match = line.match(/^\s*([^:=-]+?)\s*:(?!\/\/|\\)\s*(.+?)\s*$/);
     if (!match) {
       continue;
     }

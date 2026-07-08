@@ -310,6 +310,23 @@ describe("agent harness user input helpers", () => {
     });
   });
 
+  it("does not treat an equals-sign config snippet as a keyed answer", () => {
+    expect(
+      buildAgentHarnessUserInputAnswers(
+        [
+          { id: "q1", header: "Q1", question: "First?" },
+          { id: "mode", header: "Mode", question: "Mode?" },
+        ],
+        "mode=fast\nmanual",
+      ),
+    ).toEqual({
+      answers: {
+        q1: { answers: ["mode=fast"] },
+        mode: { answers: ["manual"] },
+      },
+    });
+  });
+
   it("preserves blank fallback lines so skipped answers stay aligned", () => {
     expect(
       buildAgentHarnessUserInputAnswers(
