@@ -242,6 +242,40 @@ describe("agent harness user input helpers", () => {
     ).toContain("a &lt; b");
   });
 
+  it("does not create a stray URL scheme key that corrupts keyed lookup", () => {
+    expect(
+      buildAgentHarnessUserInputAnswers(
+        [
+          { id: "https", header: "HTTPS", question: "HTTPS endpoint?" },
+          { id: "port", header: "Port", question: "Port?" },
+        ],
+        "https://example.com\n8080",
+      ),
+    ).toEqual({
+      answers: {
+        https: { answers: ["https://example.com"] },
+        port: { answers: ["8080"] },
+      },
+    });
+  });
+
+  it("preserves full URL value in a keyed answer", () => {
+    expect(
+      buildAgentHarnessUserInputAnswers(
+        [
+          { id: "endpoint", header: "Endpoint", question: "URL?" },
+          { id: "mode", header: "Mode", question: "Mode?" },
+        ],
+        "endpoint: https://example.com/path\nmode: fast",
+      ),
+    ).toEqual({
+      answers: {
+        endpoint: { answers: ["https://example.com/path"] },
+        mode: { answers: ["fast"] },
+      },
+    });
+  });
+
   it("preserves blank fallback lines so skipped answers stay aligned", () => {
     expect(
       buildAgentHarnessUserInputAnswers(
