@@ -89,7 +89,14 @@ export function buildAgentHarnessUserInputAnswers(
     return { answers };
   }
 
-  const keyed = parseKeyedAnswers(inputText);
+  const validKeys = new Set<string>();
+  questions.forEach((question, index) => {
+    validKeys.add(question.id.toLowerCase());
+    validKeys.add(question.header.toLowerCase());
+    validKeys.add(question.question.toLowerCase());
+    validKeys.add(String(index + 1));
+  });
+  const keyed = parseKeyedAnswers(inputText, validKeys);
   const fallbackLines = inputText.split(/\r?\n/).map((line) => line.trim());
   questions.forEach((question, index) => {
     const key =
@@ -125,16 +132,16 @@ export function normalizeAgentHarnessUserInputAnswer(
   return trimmed || undefined;
 }
 
-function parseKeyedAnswers(inputText: string): Map<string, string> {
+function parseKeyedAnswers(inputText: string, validKeys: ReadonlySet<string>): Map<string, string> {
   const answers = new Map<string, string>();
   for (const line of inputText.split(/\r?\n/)) {
-    const match = line.match(/^\s*([^:=-]+?)\s*[:=-](?!\/\/)\s*(.+?)\s*$/);
+    const match = line.match(/^\s*([^:=-]+?)\s*[:=-](?!\/\/|\\)\s*(.+?)\s*$/);
     if (!match) {
       continue;
     }
     const key = match[1]?.trim().toLowerCase();
     const value = match[2]?.trim();
-    if (key && value) {
+    if (key && value && validKeys.has(key)) {
       answers.set(key, value);
     }
   }

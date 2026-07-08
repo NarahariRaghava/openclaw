@@ -242,7 +242,7 @@ describe("agent harness user input helpers", () => {
     ).toContain("a &lt; b");
   });
 
-  it("does not create a stray URL scheme key that corrupts keyed lookup", () => {
+  it("does not treat a bare URL line as a stray keyed answer", () => {
     expect(
       buildAgentHarnessUserInputAnswers(
         [
@@ -255,6 +255,40 @@ describe("agent harness user input helpers", () => {
       answers: {
         https: { answers: ["https://example.com"] },
         port: { answers: ["8080"] },
+      },
+    });
+  });
+
+  it("does not treat a time string line as a stray keyed answer", () => {
+    expect(
+      buildAgentHarnessUserInputAnswers(
+        [
+          { id: "time", header: "Time", question: "When?" },
+          { id: "mode", header: "Mode", question: "Mode?" },
+        ],
+        "14:30\nfast",
+      ),
+    ).toEqual({
+      answers: {
+        time: { answers: ["14:30"] },
+        mode: { answers: ["fast"] },
+      },
+    });
+  });
+
+  it("does not treat a Windows path line as a stray keyed answer", () => {
+    expect(
+      buildAgentHarnessUserInputAnswers(
+        [
+          { id: "c", header: "C drive", question: "Path?" },
+          { id: "mode", header: "Mode", question: "Mode?" },
+        ],
+        "C:\\Users\\foo\nfast",
+      ),
+    ).toEqual({
+      answers: {
+        c: { answers: ["C:\\Users\\foo"] },
+        mode: { answers: ["fast"] },
       },
     });
   });
