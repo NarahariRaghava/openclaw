@@ -52,8 +52,7 @@ import {
 const log = createSubsystemLogger("ollama-stream");
 
 export const OLLAMA_NATIVE_BASE_URL = OLLAMA_DEFAULT_BASE_URL;
-export const OLLAMA_INCOMPLETE_STREAM_ERROR =
-  "Ollama API stream ended without a final response";
+export const OLLAMA_INCOMPLETE_STREAM_ERROR = "Ollama API stream ended without a final response";
 
 const OLLAMA_STREAM_COOPERATIVE_YIELD_INTERVAL_MS = 12;
 const OLLAMA_STREAM_COOPERATIVE_YIELD_MAX_EVENTS = 64;
@@ -865,7 +864,9 @@ function extractToolCalls(
         ...(id ? { id } : {}),
         function: {
           name: normalizeOllamaToolCallName(part.name, options),
-          arguments: ensureArgsObject(part.arguments),
+          // Serialize as a JSON string to match the OpenAI spec; Ollama local
+          // and cloud both accept this form, but cloud enforces it strictly.
+          arguments: JSON.stringify(ensureArgsObject(part.arguments)),
         },
       });
     } else if (part.type === "tool_use") {
@@ -874,7 +875,7 @@ function extractToolCalls(
         ...(id ? { id } : {}),
         function: {
           name: normalizeOllamaToolCallName(part.name, options),
-          arguments: ensureArgsObject(part.input),
+          arguments: JSON.stringify(ensureArgsObject(part.input)),
         },
       });
     }

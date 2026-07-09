@@ -117,7 +117,7 @@ describe("buildOllamaChatRequest", () => {
     expect(request.model).toBe("library/qwen3:32b");
   });
 
-  it("keeps native Ollama replay tool arguments as objects", () => {
+  it("serializes native Ollama replay tool arguments as JSON strings", () => {
     const messages = convertToOllamaMessages([
       {
         role: "assistant",
@@ -131,10 +131,9 @@ describe("buildOllamaChatRequest", () => {
       },
     ]);
 
-    expect(messages[0]?.tool_calls?.[0]?.function.arguments).toEqual({
-      action: "config.get",
-      path: "gateway.port",
-    });
+    expect(messages[0]?.tool_calls?.[0]?.function.arguments).toBe(
+      '{"action":"config.get","path":"gateway.port"}',
+    );
   });
 });
 
@@ -776,7 +775,7 @@ describe("convertToOllamaMessages", () => {
     expect(result[0].role).toBe("assistant");
     expect(result[0].content).toBe("Let me check.");
     expect(result[0].tool_calls).toEqual([
-      { id: "call_1", function: { name: "bash", arguments: { command: "ls" } } },
+      { id: "call_1", function: { name: "bash", arguments: '{"command":"ls"}' } },
     ]);
   });
 
@@ -796,7 +795,7 @@ describe("convertToOllamaMessages", () => {
     ];
     const result = convertToOllamaMessages(messages);
     expect(result[0].tool_calls).toEqual([
-      { id: "fc_ollama_123", function: { name: "bash", arguments: { command: "pwd" } } },
+      { id: "fc_ollama_123", function: { name: "bash", arguments: '{"command":"pwd"}' } },
     ]);
   });
 
@@ -812,8 +811,8 @@ describe("convertToOllamaMessages", () => {
     ];
     const result = convertToOllamaMessages(messages);
     expect(result[0].tool_calls).toEqual([
-      { id: "call_1", function: { name: "exec", arguments: { command: "pwd" } } },
-      { id: "call_2", function: { name: "read", arguments: { path: "README.md" } } },
+      { id: "call_1", function: { name: "exec", arguments: '{"command":"pwd"}' } },
+      { id: "call_2", function: { name: "read", arguments: '{"path":"README.md"}' } },
     ]);
   });
 
@@ -832,9 +831,9 @@ describe("convertToOllamaMessages", () => {
       availableToolNames: new Set(["tool_a", "tools_invoke_test", "function-run"]),
     });
     expect(result[0].tool_calls).toEqual([
-      { id: "call_1", function: { name: "tool_a", arguments: { value: 1 } } },
-      { id: "call_2", function: { name: "tools_invoke_test", arguments: { value: 2 } } },
-      { id: "call_3", function: { name: "function-run", arguments: { value: 3 } } },
+      { id: "call_1", function: { name: "tool_a", arguments: '{"value":1}' } },
+      { id: "call_2", function: { name: "tools_invoke_test", arguments: '{"value":2}' } },
+      { id: "call_3", function: { name: "function-run", arguments: '{"value":3}' } },
     ]);
   });
 
@@ -853,9 +852,9 @@ describe("convertToOllamaMessages", () => {
       availableToolNames: new Set(["exec", "read"]),
     });
     expect(result[0].tool_calls).toEqual([
-      { id: "call_1", function: { name: "exec", arguments: { command: "pwd" } } },
-      { id: "call_2", function: { name: "read", arguments: { path: "." } } },
-      { id: "call_3", function: { name: "tool_missing", arguments: {} } },
+      { id: "call_1", function: { name: "exec", arguments: '{"command":"pwd"}' } },
+      { id: "call_2", function: { name: "read", arguments: '{"path":"."}' } },
+      { id: "call_3", function: { name: "tool_missing", arguments: "{}" } },
     ]);
   });
 
@@ -873,16 +872,17 @@ describe("convertToOllamaMessages", () => {
     ];
     const result = convertToOllamaMessages(messages);
     expect(result[0].tool_calls).toEqual([
-      { id: "call_1", function: { name: "functionshell", arguments: {} } },
-      { id: "call_2", function: { name: "tooling", arguments: {} } },
-      { id: "call_3", function: { name: "tools", arguments: {} } },
-      { id: "call_4", function: { name: "tool_a", arguments: {} } },
+      { id: "call_1", function: { name: "functionshell", arguments: "{}" } },
+      { id: "call_2", function: { name: "tooling", arguments: "{}" } },
+      { id: "call_3", function: { name: "tools", arguments: "{}" } },
+      { id: "call_4", function: { name: "tool_a", arguments: "{}" } },
     ]);
   });
 
-  it("deserializes string arguments back to objects for Ollama (round-trip fix)", () => {
-    // When tool calls round-trip through OpenAI-format storage, arguments
-    // are serialized as a JSON string.  Ollama expects an object.
+  it("serializes string arguments as JSON strings for Ollama replay", () => {
+    // Arguments stored as JSON strings (from OpenAI-format storage) are
+    // round-tripped through ensureArgsObject and re-serialized as strings
+    // so both local and cloud Ollama receive the spec-compliant string form.
     const messages = [
       {
         role: "assistant",
@@ -898,7 +898,7 @@ describe("convertToOllamaMessages", () => {
     ];
     const result = convertToOllamaMessages(messages);
     expect(result[0].tool_calls).toEqual([
-      { id: "call_2", function: { name: "Read", arguments: { file_path: "/tmp/test.txt" } } },
+      { id: "call_2", function: { name: "Read", arguments: '{"file_path":"/tmp/test.txt"}' } },
     ]);
   });
 
@@ -913,11 +913,14 @@ describe("convertToOllamaMessages", () => {
     ];
     const result = convertToOllamaMessages(messages);
     expect(result[0].tool_calls).toEqual([
-      { id: "toolu_1", function: { name: "exec", arguments: { command: "echo hello" } } },
+      { id: "toolu_1", function: { name: "exec", arguments: '{"command":"echo hello"}' } },
     ]);
   });
 
-  it("preserves unsafe integers as strings when replay args are deserialized", () => {
+  it("preserves unsafe integers as strings when replay args are serialized", () => {
+    // parseJsonObjectPreservingUnsafeIntegers converts large integers to
+    // strings to avoid precision loss, then JSON.stringify re-encodes them
+    // as JSON strings rather than numbers.
     const messages = [
       {
         role: "assistant",
@@ -937,10 +940,7 @@ describe("convertToOllamaMessages", () => {
         id: "call_3",
         function: {
           name: "read",
-          arguments: {
-            path: "9223372036854775807",
-            nested: { thread: "1234567890123456789" },
-          },
+          arguments: '{"path":"9223372036854775807","nested":{"thread":"1234567890123456789"}}',
         },
       },
     ]);
