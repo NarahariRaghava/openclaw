@@ -296,13 +296,12 @@ function buildSkillStatus(
   const availableToAgent = eligible && !blockedByAgentFilter;
   const userInvocable = indexed.userInvocable;
 
-  // Globally managed skills live under managedSkillsDir and are tracked in the
-  // managed lockfile, not the workspace lockfile. Route them to the managed
-  // parent dir so resolveClawHubSkillStatusLinkSync resolves the correct
-  // install path and lockfile entry.
+  // Globally managed skills are tracked in the managed lockfile, not the
+  // workspace lockfile. Use the loader-assigned source rather than a lexical
+  // path check: managed skill roots may contain symlinks whose resolved
+  // baseDir sits outside the managedSkillsDir tree.
   const resolvedManagedSkillsDir = path.resolve(context.managedSkillsDir);
-  const isGlobalSkill =
-    !bundled && path.resolve(entry.skill.baseDir).startsWith(resolvedManagedSkillsDir + path.sep);
+  const isGlobalSkill = !bundled && skillSource === "openclaw-managed";
   const clawhub =
     workspaceDir && !bundled
       ? resolveClawHubSkillStatusLinkSync({

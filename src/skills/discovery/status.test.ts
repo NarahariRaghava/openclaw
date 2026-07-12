@@ -253,7 +253,7 @@ describe("buildWorkspaceSkillStatus", () => {
 
       const report = buildWorkspaceSkillStatus(workspaceDir, {
         managedSkillsDir,
-        entries: [createEntry("agentreceipt", { baseDir: skillDir })],
+        entries: [createEntry("agentreceipt", { baseDir: skillDir, source: "openclaw-managed" })],
       });
 
       // Global skill must be linked via the managed lockfile, not flagged as
@@ -265,6 +265,41 @@ describe("buildWorkspaceSkillStatus", () => {
       });
     } finally {
       await fs.rm(managedParentDir, { recursive: true, force: true });
+      await fs.rm(workspaceDir, { recursive: true, force: true });
+    }
+  });
+
+  it("links a globally managed skill whose baseDir is a symlink target outside managedSkillsDir", async () => {
+    const managedParentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-managed-"));
+    const externalSkillDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-ext-skill-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-skill-status-"));
+    try {
+      const managedSkillsDir = path.join(managedParentDir, "skills");
+      await fs.mkdir(managedSkillsDir, { recursive: true });
+      // Symlink: managedSkillsDir/agentreceipt -> externalSkillDir (canonical
+      // path is outside managedSkillsDir; lexical path check would miss this).
+      const symlinkPath = path.join(managedSkillsDir, "agentreceipt");
+      await fs.symlink(externalSkillDir, symlinkPath);
+      await writeClawHubStatusFixture({
+        workspaceDir: managedParentDir,
+        skillDir: externalSkillDir,
+        slug: "agentreceipt",
+      });
+      const report = buildWorkspaceSkillStatus(workspaceDir, {
+        managedSkillsDir,
+        entries: [
+          createEntry("agentreceipt", { baseDir: externalSkillDir, source: "openclaw-managed" }),
+        ],
+      });
+
+      expect(report.skills[0]?.clawhub).toMatchObject({
+        status: "linked",
+        valid: true,
+        slug: "agentreceipt",
+      });
+    } finally {
+      await fs.rm(managedParentDir, { recursive: true, force: true });
+      await fs.rm(externalSkillDir, { recursive: true, force: true });
       await fs.rm(workspaceDir, { recursive: true, force: true });
     }
   });
