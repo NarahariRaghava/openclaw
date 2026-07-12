@@ -32,6 +32,7 @@ import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { logVerbose } from "../../globals.js";
 import { formatErrorMessage } from "../../infra/errors.js";
 import { isAcpSessionKey, parseAgentSessionKey } from "../../routing/session-key.js";
+import { isTerminalTaskStatus, listTasksForOwnerKey } from "../../tasks/task-registry.js";
 import { resolveCommandAuthorization } from "../command-auth.js";
 import type { FinalizedMsgContext } from "../templating.js";
 import {
@@ -72,6 +73,8 @@ const defaultAbortDeps = {
   getLatestSubagentRunByChildSessionKey,
   listSubagentRunsForController,
   markSubagentRunTerminated,
+  listTasksForOwnerKey,
+  isTerminalTaskStatus,
 };
 
 const abortDeps = {
@@ -97,6 +100,10 @@ export const testing = {
       deps?.listSubagentRunsForController ?? defaultAbortDeps.listSubagentRunsForController;
     abortDeps.markSubagentRunTerminated =
       deps?.markSubagentRunTerminated ?? defaultAbortDeps.markSubagentRunTerminated;
+    abortDeps.listTasksForOwnerKey =
+      deps?.listTasksForOwnerKey ?? defaultAbortDeps.listTasksForOwnerKey;
+    abortDeps.isTerminalTaskStatus =
+      deps?.isTerminalTaskStatus ?? defaultAbortDeps.isTerminalTaskStatus;
   },
   resetDepsForTests(): void {
     abortDeps.getAcpSessionManager = defaultAbortDeps.getAcpSessionManager;
@@ -109,6 +116,8 @@ export const testing = {
       defaultAbortDeps.getLatestSubagentRunByChildSessionKey;
     abortDeps.listSubagentRunsForController = defaultAbortDeps.listSubagentRunsForController;
     abortDeps.markSubagentRunTerminated = defaultAbortDeps.markSubagentRunTerminated;
+    abortDeps.listTasksForOwnerKey = defaultAbortDeps.listTasksForOwnerKey;
+    abortDeps.isTerminalTaskStatus = defaultAbortDeps.isTerminalTaskStatus;
   },
 };
 
@@ -263,10 +272,6 @@ export function stopSubagentsForRequester(params: {
     }
   }
   const runs = Array.from(dedupedRunsByChildKey.values());
-  if (runs.length === 0) {
-    return { stopped: 0 };
-  }
-
   const seenChildKeys = new Set<string>();
   let stopped = 0;
 
@@ -317,6 +322,34 @@ export function stopSubagentsForRequester(params: {
       requesterSessionKey: childKey,
     });
     stopped += cascadeResult.stopped;
+  }
+
+  // Cancel active ACP detached tasks owned by this requester that are not
+  // already covered by the subagent run registry paths above. The subagent
+  // registry only tracks inline/embedded children; ACP spawns create task
+  // records under the requester's ownerKey instead. Each cancel is
+  // fire-and-forget: the ACP manager handles session/run mode internally,
+  // so an indiscriminate kill is avoided.
+  for (const task of abortDeps.listTasksForOwnerKey(requesterKey)) {
+    const childKey = normalizeOptionalString(task.childSessionKey);
+    if (
+      task.runtime !== "acp" ||
+      abortDeps.isTerminalTaskStatus(task.status) ||
+      !childKey ||
+      seenChildKeys.has(childKey)
+    ) {
+      continue;
+    }
+    seenChildKeys.add(childKey);
+    stopped += 1;
+    abortDeps
+      .getAcpSessionManager()
+      .cancelSession({ cfg: params.cfg, sessionKey: childKey, reason: "owner-stopped" })
+      .catch((err: unknown) => {
+        logVerbose(
+          `abort: failed to cancel ACP task ${task.taskId} for ${requesterKey}: ${formatErrorMessage(err)}`,
+        );
+      });
   }
 
   if (stopped > 0) {
