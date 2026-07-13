@@ -110,7 +110,7 @@ const taskRegistryMocks = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("../../tasks/task-registry.js", () => ({
+vi.mock("../../tasks/task-owner-access.js", () => ({
   listTasksForOwnerKey: taskRegistryMocks.listTasksForOwnerKey,
 }));
 

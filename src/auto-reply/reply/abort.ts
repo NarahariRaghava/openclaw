@@ -33,7 +33,7 @@ import { logVerbose } from "../../globals.js";
 import { formatErrorMessage } from "../../infra/errors.js";
 import { isAcpSessionKey, parseAgentSessionKey } from "../../routing/session-key.js";
 import { isTerminalTaskStatus } from "../../tasks/task-executor-policy.js";
-import { listTasksForOwnerKey } from "../../tasks/task-registry.js";
+import { listTasksForOwnerKey } from "../../tasks/task-owner-access.js";
 import { resolveCommandAuthorization } from "../command-auth.js";
 import type { FinalizedMsgContext } from "../templating.js";
 import {
