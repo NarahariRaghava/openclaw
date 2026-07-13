@@ -1628,7 +1628,9 @@ describe("abort detection", () => {
 
     expect(result).toEqual({ stopped: 1 });
     // Allow the fire-and-forget cancel to settle.
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
     expect(acpManagerMocks.cancelSession).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionKey: "acp:session:orphan-1",
@@ -1692,7 +1694,9 @@ describe("abort detection", () => {
 
     // Only the active ACP task should be counted (terminal and subagent-covered are skipped).
     expect(result.stopped).toBe(1);
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
     expect(acpManagerMocks.cancelSession).toHaveBeenCalledTimes(1);
     expect(acpManagerMocks.cancelSession).toHaveBeenCalledWith(
       expect.objectContaining({ sessionKey: activeAcpKey }),
