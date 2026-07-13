@@ -1702,4 +1702,51 @@ describe("abort detection", () => {
       expect.objectContaining({ sessionKey: activeAcpKey }),
     );
   });
+
+  it("stopSubagentsForRequester does not let an ended subagent record mask an active ACP task with the same child key", async () => {
+    const sharedChildKey = "acp:session:shared-child";
+    const now = Date.now();
+
+    subagentRegistryMocks.listSubagentRunsForRequester.mockReset().mockReturnValueOnce([
+      {
+        runId: "run-ended",
+        childSessionKey: sharedChildKey,
+        requesterSessionKey: "telegram:owner",
+        requesterDisplayKey: "telegram:owner",
+        task: "ended subagent",
+        cleanup: "keep",
+        createdAt: now - 5_000,
+        endedAt: now - 1_000,
+      },
+    ]);
+    taskRegistryMocks.listTasksForOwnerKey.mockReset().mockReturnValueOnce([
+      {
+        taskId: "task-active",
+        runtime: "acp",
+        status: "running",
+        childSessionKey: sharedChildKey,
+        ownerKey: "telegram:owner",
+        task: "active acp task",
+        requesterSessionKey: "telegram:owner",
+        scopeKind: "session",
+        deliveryStatus: "pending",
+        notifyPolicy: "default",
+        createdAt: now - 1_000,
+      },
+    ]);
+
+    const result = stopSubagentsForRequester({
+      cfg: {} as OpenClawConfig,
+      requesterSessionKey: "telegram:owner",
+    });
+
+    expect(result.stopped).toBe(1);
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(acpManagerMocks.cancelSession).toHaveBeenCalledTimes(1);
+    expect(acpManagerMocks.cancelSession).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionKey: sharedChildKey }),
+    );
+  });
 });

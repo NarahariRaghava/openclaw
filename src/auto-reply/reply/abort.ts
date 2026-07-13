@@ -281,9 +281,14 @@ export function stopSubagentsForRequester(params: {
     if (!childKey || seenChildKeys.has(childKey)) {
       continue;
     }
-    seenChildKeys.add(childKey);
+    // Only mark as seen when this run is active; ended records must not
+    // block the ACP task loop from cancelling a matching non-terminal task.
+    const isActiveRun = !run.endedAt || run.pauseReason === "sessions_yield";
+    if (isActiveRun) {
+      seenChildKeys.add(childKey);
+    }
 
-    if (!run.endedAt || run.pauseReason === "sessions_yield") {
+    if (isActiveRun) {
       const cleared = clearSessionQueues([childKey]);
       const parsed = parseAgentSessionKey(childKey);
       const storePath = resolveStorePath(params.cfg.session?.store, { agentId: parsed?.agentId });
