@@ -11,6 +11,7 @@ import {
   createChannelProgressDraftCompositor,
 } from "openclaw/plugin-sdk/channel-outbound";
 import { isLoopbackHost } from "openclaw/plugin-sdk/gateway-runtime";
+import { isReplyPayloadNonTerminalToolErrorWarning } from "openclaw/plugin-sdk/reply-payload";
 import { finalizeInboundContext } from "openclaw/plugin-sdk/reply-runtime";
 import { resolveInboundLastRouteSessionKey } from "openclaw/plugin-sdk/routing";
 import { resolvePinnedMainDmOwnerFromAllowlist } from "openclaw/plugin-sdk/security-runtime";
@@ -185,6 +186,7 @@ function createDisabledMattermostDraftStream(): ReturnType<typeof createMattermo
     updateAssistantText: () => {},
     flush: noopAsync,
     postId: () => undefined,
+    latestSentText: () => "",
     clear: noopAsync,
     discardPending: noopAsync,
     seal: noopAsync,
@@ -1561,6 +1563,15 @@ export async function monitorMattermostProvider(opts: MonitorMattermostOpts = {}
           // boundary work before the synchronous final-edit decision.
           await draftStream.settleBoundaries();
           progressDraft.markFinalReplyStarted();
+        }
+        // When the streaming answer was already finalized via the draft preview post, skip
+        // any subsequent non-terminal tool-error warning rather than clearing that post.
+        if (
+          info.kind === "final" &&
+          isReplyPayloadNonTerminalToolErrorWarning(payloadEntry) &&
+          previewState.finalizedViaPreviewPost
+        ) {
+          return;
         }
         // A visible same-thread final arrives either via a normal send or by editing
         // the draft preview in place; record participation on whichever path fires.

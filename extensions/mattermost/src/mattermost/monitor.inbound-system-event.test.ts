@@ -1665,6 +1665,7 @@ describe("mattermost inbound user posts", () => {
       forceNewMessage: vi.fn(async () => {}),
       flush: vi.fn(async () => {}),
       postId: vi.fn(() => undefined),
+      latestSentText: vi.fn(() => ""),
       clear: vi.fn(async () => {}),
       discardPending: vi.fn(async () => {}),
       seal: vi.fn(async () => {}),

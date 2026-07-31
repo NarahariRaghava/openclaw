@@ -24,7 +24,7 @@ type MattermostDraftPreviewDeliverParams = {
   client: MattermostClient;
   draftStream: Pick<
     ReturnType<typeof createMattermostDraftStream>,
-    "flush" | "postId" | "clear" | "discardPending" | "seal"
+    "flush" | "postId" | "latestSentText" | "resolveFinalText" | "clear" | "discardPending" | "seal"
   >;
   effectiveReplyToId?: string;
   resolvePreviewFinalText: (text?: string) => string | undefined;
@@ -58,13 +58,11 @@ export async function deliverMattermostReplyWithDraftPreview(
       buildFinalEdit: (payload) => {
         const hasMedia = Boolean(payload.mediaUrl) || (payload.mediaUrls?.length ?? 0) > 0;
         const ttsSupplement = getReplyPayloadTtsSupplement(payload);
-        const previewFinalText = params.resolvePreviewFinalText(
-          payload.text ?? ttsSupplement?.spokenText,
-        );
+        const payloadText = payload.text ?? ttsSupplement?.spokenText;
+        const previewFinalText = params.resolvePreviewFinalText(payloadText);
 
         if (
           (hasMedia && !ttsSupplement) ||
-          typeof previewFinalText !== "string" ||
           payload.isError ||
           !canFinalizeMattermostPreviewInPlace({
             kind: params.kind,
@@ -75,7 +73,26 @@ export async function deliverMattermostReplyWithDraftPreview(
         ) {
           return undefined;
         }
-        return { message: previewFinalText };
+
+        if (typeof previewFinalText === "string") {
+          return { message: previewFinalText };
+        }
+
+        // previewFinalText is undefined: text is either too long for one chunk or was
+        // already fully delivered via streaming. For the already-delivered case, finalize
+        // the draft in place with its last sent text rather than clearing it, which would
+        // delete the visible streaming answer before the warning has a chance to be skipped.
+        if (typeof payloadText === "string" && payloadText.trim()) {
+          const resolution = params.draftStream.resolveFinalText(payloadText);
+          if (resolution.kind === "already-delivered") {
+            const lastSentText = params.draftStream.latestSentText();
+            if (lastSentText) {
+              return { message: lastSentText };
+            }
+          }
+        }
+
+        return undefined;
       },
       editFinal: async (previewPostId, edit) => {
         await updateMattermostPost(params.client, previewPostId, edit);
